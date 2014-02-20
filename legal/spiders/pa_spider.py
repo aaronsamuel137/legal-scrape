@@ -1,3 +1,5 @@
+import re
+
 from scrapy.spider import Spider
 from scrapy.selector import Selector
 
@@ -18,8 +20,8 @@ class PaSpider(Spider):
             tds = tr.xpath('./td')
             if len(tds) == 6:
                 item = LegalItem()
-                item['title'] = tds[1].xpath('text()').extract()
-                item['link'] = tds[3].xpath('a/@href').extract()
+                item['title'] = tds[1].xpath('text()').extract()[0]
+                item['link'] = tds[3].xpath('a/@href').extract()[0]
                 items.append(item)
 
         return items
