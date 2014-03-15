@@ -1,10 +1,13 @@
 from multiprocessing import Process, Lock, Manager
 from multiprocessing.managers import BaseManager
+
 import os
 import random
 import json
+import requests
+import re
 
-NUM_THREADS = 4
+# from pymongo import MongoClient
 
 class ConcurrentQueue():
     def __init__(self):
@@ -41,18 +44,29 @@ class QueueManager(BaseManager):
 
 QueueManager.register('ConcurrentQueue', ConcurrentQueue)
 
+def parse(url):
+    link_re = re.compile("http://www\.legis\.state\.pa\.us//WU01/LI/LI/CT/HTM/[0-9]+/[0-9].*\'")
+    r = requests.get(url)
+    link = link_re.findall(r.text)[0].replace("'", '')
+    print link
+    r2 = requests.get(link)
+    print r2.text
+
 def fill_queue(q):
     items = json.load(open('items.json'))
     for i in items:
         q.enq(i['link'])
 
 def test_queue(q):
-    print q.deq(), os.getpid()
-    print q.deq(), os.getpid()
-    print q.deq(), os.getpid()
-    print q.deq(), os.getpid()
+    url = q.deq()
+    parse(url)
+
 
 def test():
+    # client = MongoClient('localhost', 27017)
+    # db = client.legal_db
+    # collection = db.legal
+
     manager = QueueManager()
     manager.start()
     q = manager.ConcurrentQueue()
