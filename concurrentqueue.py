@@ -7,7 +7,9 @@ import json
 import requests
 import re
 
-# from pymongo import MongoClient
+from pymongo import MongoClient
+
+NUM_THREADS = 4
 
 class ConcurrentQueue():
     def __init__(self):
@@ -18,6 +20,8 @@ class ConcurrentQueue():
         self.lock.acquire()
         try:
             item = self.data.pop(0)
+        except IndexError:
+            item = -1
         finally:
             self.lock.release()
         return item
@@ -44,28 +48,32 @@ class QueueManager(BaseManager):
 
 QueueManager.register('ConcurrentQueue', ConcurrentQueue)
 
-def parse(url):
+def parse(item, collection):
     link_re = re.compile("http://www\.legis\.state\.pa\.us//WU01/LI/LI/CT/HTM/[0-9]+/[0-9].*\'")
-    r = requests.get(url)
+    r = requests.get(item['link'])
     link = link_re.findall(r.text)[0].replace("'", '')
-    print link
     r2 = requests.get(link)
-    print r2.text
+
+    data = {'title': item['title'],
+            'body': r2.text}
+    collection.insert(data)
 
 def fill_queue(q):
     items = json.load(open('items.json'))
     for i in items:
-        q.enq(i['link'])
+        q.enq(i)
 
-def test_queue(q):
-    url = q.deq()
-    parse(url)
-
+def pares_urls(q, collection):
+    item = q.deq()
+    while item != -1:
+        print 'process {} parsing url {}'.format(os.getpid(), item['link'])
+        parse(item, collection)
+        item = q.deq()
 
 def test():
-    # client = MongoClient('localhost', 27017)
-    # db = client.legal_db
-    # collection = db.legal
+    client = MongoClient('localhost', 27017)
+    db = client.legal_db
+    collection = db.legal
 
     manager = QueueManager()
     manager.start()
@@ -73,16 +81,18 @@ def test():
 
     fill_queue(q)
 
-    p1 = Process(target=test_queue, args=(q,))
-    p2 = Process(target=test_queue, args=(q,))
+    processes = []
 
-    p1.start()
-    p2.start()
+    for i in range(NUM_THREADS):
+        processes.append(Process(target=pares_urls, args=(q, collection)))
 
-    print p1.pid
-    print p2.pid
+    for i in range(NUM_THREADS):
+        processes[i].start()
 
-    p1.join()
-    p2.join()
+    for i in range(NUM_THREADS):
+        processes[i].join()
+
+    for item in collection.find():
+        print item['title']
 
 test()
