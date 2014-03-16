@@ -44,6 +44,13 @@ def pares_urls(q):
         parse(item)
         item = q.deq()
 
+def print_results():
+    for item in collection.find():
+        print item['title']
+
+    print '\nloaded {} items'.format(collection.count())
+    collection.remove()
+
 def run_tests_with_object():
     manager = QueueManager()
     manager.start()
@@ -62,16 +69,14 @@ def run_tests_with_object():
     for i in range(NUM_THREADS):
         processes[i].join()
 
-    for item in collection.find():
-        print item['title']
-
-    print '\nloaded {} items'.format(collection.count())
-    collection.remove()
+    print_results()
 
 def run_tests_with_pool():
     q = json.load(open('items.json'))
     pool = Pool(processes=NUM_THREADS)
     result = pool.map(parse, q)
+
+    print_results()
 
 def main():
     run_tests_with_object()
