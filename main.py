@@ -1,6 +1,7 @@
 from multiprocessing import Process, Lock, Pool
 from multiprocessing.managers import BaseManager
 from concurrentqueue import ConcurrentQueue
+from spider import Spider
 from BeautifulSoup import BeautifulSoup
 
 import os
@@ -8,6 +9,7 @@ import random
 import json
 import requests
 import re
+import time
 
 from pymongo import MongoClient
 
@@ -18,6 +20,8 @@ client = MongoClient('localhost', 27017)
 db = client.legal_db
 collection = db.legal
 
+link_re = re.compile("http://www\.legis\.state\.pa\.us//WU01/LI/LI/CT/HTM/[0-9]+/[0-9].*\'")
+
 class QueueManager(BaseManager):
     pass
 
@@ -25,7 +29,6 @@ QueueManager.register('ConcurrentQueue', ConcurrentQueue)
 
 def parse(item):
     print 'process {} parsing url {}'.format(os.getpid(), item['link'])
-    link_re = re.compile("http://www\.legis\.state\.pa\.us//WU01/LI/LI/CT/HTM/[0-9]+/[0-9].*\'")
     r = requests.get(item['link'])
     link = link_re.findall(r.text)[0].replace("'", '')
     r2 = requests.get(link)
@@ -42,7 +45,14 @@ def fill_queue(q):
 def parse_urls(q):
     item = q.deq()
     while item != -1:
-        parse(item)
+        print 'process {} parsing url {}'.format(os.getpid(), item['link'])
+        r = requests.get(item['link'])
+        link = link_re.findall(r.text)[0].replace("'", '')
+        r2 = requests.get(link)
+        soup = BeautifulSoup(r2.text)
+        data = soup.find('pre').getText()
+        item['data'] = data
+        collection.insert(item)
         item = q.deq()
 
 def print_results():
@@ -53,19 +63,8 @@ def print_results():
     collection.remove()
 
 def crawl(url, q):
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text)
-
-    trs = soup.findAll('tr')
-    for tr in trs:
-        tds = tr.findAll('td')
-        if len(tds) == 6:
-            title = tds[1].getText()
-            link = tds[3].find('a')['href']
-            q.enq({
-                'title': title,
-                'link': link
-            })
+    print 'calling crawl'
+    Spider().crawl(url, q)
 
 def run_tests_with_object():
     url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
