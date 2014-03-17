@@ -4,11 +4,13 @@ class ConcurrentQueue():
     def __init__(self):
         self.data = []
         self.lock = Lock()
+        self.size = 0
 
     def deq(self):
         self.lock.acquire()
         try:
             item = self.data.pop(0)
+            self.size -= 1
         except IndexError:
             item = -1
         finally:
@@ -19,6 +21,7 @@ class ConcurrentQueue():
         self.lock.acquire()
         try:
             self.data.append(item)
+            self.size += 1
         finally:
             self.lock.release()
 
@@ -28,6 +31,9 @@ class ConcurrentQueue():
             print self.data
         finally:
             self.lock.release()
+
+    def get_size(self):
+        return self.size
 
     def __str__(self):
         return self.data

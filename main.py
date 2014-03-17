@@ -1,6 +1,7 @@
 from multiprocessing import Process, Lock, Pool
 from multiprocessing.managers import BaseManager
 from concurrentqueue import ConcurrentQueue
+from BeautifulSoup import BeautifulSoup
 
 import os
 import random
@@ -38,7 +39,7 @@ def fill_queue(q):
     for i in items:
         q.enq(i)
 
-def pares_urls(q):
+def parse_urls(q):
     item = q.deq()
     while item != -1:
         parse(item)
@@ -51,23 +52,50 @@ def print_results():
     print '\nloaded {} items'.format(collection.count())
     collection.remove()
 
+def crawl(url, q):
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text)
+
+    trs = soup.findAll('tr')
+    for tr in trs:
+        tds = tr.findAll('td')
+        if len(tds) == 6:
+            title = tds[1].getText()
+            link = tds[3].find('a')['href']
+            q.enq({
+                'title': title,
+                'link': link
+            })
+
 def run_tests_with_object():
+    url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
+
     manager = QueueManager()
     manager.start()
     q = manager.ConcurrentQueue()
 
-    fill_queue(q)
+    # fill_queue(q)
+
+    # start a spider crawling for urls
+    p = Process(target=crawl, args=(url, q, ))
+    p.start()
 
     processes = []
 
     for i in range(NUM_THREADS):
-        processes.append(Process(target=pares_urls, args=(q, )))
+        processes.append(Process(target=parse_urls, args=(q, )))
+
+    # wait until some items are in the queue before starting the parsing threads
+    while q.get_size() < 1:
+        pass
 
     for i in range(NUM_THREADS):
         processes[i].start()
 
     for i in range(NUM_THREADS):
         processes[i].join()
+
+    p.join()
 
     print_results()
 
@@ -79,6 +107,7 @@ def run_tests_with_pool():
     print_results()
 
 def main():
+
     run_tests_with_object()
     # run_tests_with_pool()
 
