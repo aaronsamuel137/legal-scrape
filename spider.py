@@ -10,7 +10,12 @@ domain = 'http://www.legis.state.pa.us'
 class Spider():
 
     def crawl(self, url, q):
+        """
+        Crawls the main url looking for sub-urls.
+
+        """
         print 'calling crawl with url', url
+        num_urls = 0
         r = requests.get(url)
         soup = BeautifulSoup(r.text)
 
@@ -24,17 +29,25 @@ class Spider():
                     'main_page': title,
                 }
                 item['link'] = self.get_data_link(link)
-                self.crawl_again(item, q)
+                num_urls += self.crawl_again(item, q)
+
+        print 'total urls crawled:', num_urls
 
     def get_data_link(self, url):
+        """
+        Returns the link for the actual content for the page.
+
+        """
         link_re = re.compile("http://www\.legis\.state\.pa\.us//WU01/LI/LI/CT/HTM/[0-9]+/[0-9].*\'")
-        # print 'getting data link from', url
         r = requests.get(url)
         link = link_re.findall(r.text)[0].replace("'", '')
-        # print 'got data link', link
         return link
 
     def crawl_again(self, item, q):
+        """
+        Crawls the content page, looking for all urls in the same domain.
+
+        """
         # print 'getting all links from page', item['link']
         r = requests.get(item['link'])
         soup = BeautifulSoup(r.text)
@@ -48,9 +61,6 @@ class Spider():
                     'link_text': url.getText(),
                     'link': link
                 })
-                print 'process {} adding url {} to queue'.format(os.getpid(), link)
-
-
-# s = Spider()
-# url = s.get_data_link('http://www.legis.state.pa.us/cfdocs/legis/LI/consCheck.cfm?txtType=HTM&ttl=0')
-# s.crawl_again(url)
+                # print 'process {} adding url {} to queue'.format(os.getpid(), link)
+        # print 'added {} urls'.format(len(urls))
+        return len(urls)
