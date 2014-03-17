@@ -1,67 +1,127 @@
 from multiprocessing import Process, Lock, Pool
 from multiprocessing.managers import BaseManager
 from concurrentqueue import ConcurrentQueue
+from spider import Spider
+from BeautifulSoup import BeautifulSoup
 
 import os
 import random
 import json
 import requests
 import re
+import time
 
 from pymongo import MongoClient
 
-NUM_THREADS = 4
+NUM_THREADS = 3
+
+# open an error log
+log = open('error.log', 'w')
 
 # set up database connection
 client = MongoClient('localhost', 27017)
 db = client.legal_db
 collection = db.legal
 
+# regex for getting the links to the actual data from the main link
+link_re = re.compile("http://www\.legis\.state\.pa\.us//WU01/LI/LI/CT/HTM/[0-9]+/[0-9].*\'")
+
+# set up a manager to allow our queue to live in shared memory
 class QueueManager(BaseManager):
     pass
 
 QueueManager.register('ConcurrentQueue', ConcurrentQueue)
 
-def parse(item):
-    print 'process {} parsing url {}'.format(os.getpid(), item['link'])
-    link_re = re.compile("http://www\.legis\.state\.pa\.us//WU01/LI/LI/CT/HTM/[0-9]+/[0-9].*\'")
-    r = requests.get(item['link'])
-    link = link_re.findall(r.text)[0].replace("'", '')
-    r2 = requests.get(link)
+def parse_urls(q):
+    """
+    The main parsing function. Takes a concurrent queue as an argument.
 
-    data = {'title': item['title'],
-            'body': r2.text}
-    collection.insert(data)
-
-def fill_queue(q):
-    items = json.load(open('items.json'))
-    for i in items:
-        q.enq(i)
-
-def pares_urls(q):
+    """
     item = q.deq()
+
+    # keep dequing items until the queue is empty
     while item != -1:
-        parse(item)
+        print 'process {} parsing url {}'.format(os.getpid(), item['link'])
+        print 'queue size is', q.get_size()
+
+        r = requests.get(item['link'])
+
+        # try to find link to data using regex
+        matches = link_re.findall(r.text)
+        if len(matches) > 0:
+            link = matches[0].replace("'", '')
+            r2 = requests.get(link)
+            soup = BeautifulSoup(r2.text)
+
+            # get the title of the html page
+            try:
+                page_title = soup.find('title')
+                title = page_title.getText()
+                item['page_title'] = title
+            except:
+                log.write('title not found on url: ' + link)
+
+            # try to find text surrounded by pre tag
+            # this applies to some documents and not others
+            pre = soup.find('pre')
+            if pre is not None:
+                data = pre.getText()
+                item['data'] = data
+
+            # otherwise, just get all the p tags
+            else:
+                try:
+                    ps = soup.findAll('p')
+                    text = ''
+                    for i, p in enumerate(ps):
+                        if i == 0:
+                            # the first p tag is usual a title or something,
+                            # so store it seperately
+                            line1 = ps[0].getText()
+                        else:
+                            text += (p.getText() + '\n')
+                    item['data'] = {
+                        'first_line': line1,
+                        'text': text
+                    }
+                except Exception as e:
+                    log.write('error occured: ' + str(e))
+                    log.write('url is ' + str(link))
+
+            try:
+                collection.insert(item)
+            except:
+                log.write('error adding item to database')
+
+        else:
+            log.write('data link not found in page ' + item['link'])
+
         item = q.deq()
 
-def print_results():
-    for item in collection.find():
-        print item['title']
-
-    print '\nloaded {} items'.format(collection.count())
-    collection.remove()
+def crawl(url, q):
+    print 'calling crawl'
+    Spider().crawl(url, q)
 
 def run_tests_with_object():
+    url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
+
+    # set up out queue as a shared object
     manager = QueueManager()
     manager.start()
     q = manager.ConcurrentQueue()
 
-    fill_queue(q)
+    # start a spider crawling for urls
+    p = Process(target=crawl, args=(url, q, ))
+    p.start()
 
+    # start other processes for parsing the urls
     processes = []
-
     for i in range(NUM_THREADS):
-        processes.append(Process(target=pares_urls, args=(q, )))
+        processes.append(Process(target=parse_urls, args=(q, )))
+
+    # wait until some items are in the queue before starting the parsing threads
+    while q.get_size() < 1:
+        pass
 
     for i in range(NUM_THREADS):
         processes[i].start()
@@ -69,17 +129,10 @@ def run_tests_with_object():
     for i in range(NUM_THREADS):
         processes[i].join()
 
-    print_results()
-
-def run_tests_with_pool():
-    q = json.load(open('items.json'))
-    pool = Pool(processes=NUM_THREADS)
-    result = pool.map(parse, q)
-
-    print_results()
+    p.join()
 
 def main():
     run_tests_with_object()
-    # run_tests_with_pool()
+    log.close()
 
 main()
