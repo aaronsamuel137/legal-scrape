@@ -37,6 +37,7 @@ def parse_urls(q):
     The main parsing function. Takes a concurrent queue as an argument.
 
     """
+    s = requests.Session()
     item = q.deq()
 
     # keep dequing items until the queue is empty
@@ -44,13 +45,13 @@ def parse_urls(q):
         print 'process {} parsing url {}'.format(os.getpid(), item['link'])
         print 'queue size is', q.get_size()
 
-        r = requests.get(item['link'])
+        r = s.get(item['link'])
 
         # try to find link to data using regex
         matches = link_re.findall(r.text)
         if len(matches) > 0:
             link = matches[0].replace("'", '')
-            r2 = requests.get(link)
+            r2 = s.get(link)
             soup = BeautifulSoup(r2.text)
 
             # get the title of the html page
