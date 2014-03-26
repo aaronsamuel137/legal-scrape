@@ -2,7 +2,7 @@ import requests
 import re
 import os
 
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 from concurrentqueue import ConcurrentQueue
 
 domain = 'http://www.legis.state.pa.us'
@@ -53,14 +53,21 @@ class Spider():
         # print 'getting all links from page', item['link']
         r = s.get(item['link'])
         soup = BeautifulSoup(r.text)
+        main = soup.title.string
         urls = soup.findAll('a')
+        chre = re.compile("(?<=chpt=)\d+")
+        notchre = re.compile("sctn=")
         for url in urls:
             href = url['href']
+            isChapt = chre.search(href)
+            if notchre.search(href) == None and isChapt:
+                mySub = isChapt.group(0)
             if href.startswith('/'):
                 link = domain + href
                 q.enq({
-                    'main_page': item['main_page'],
-                    'link_text': url.getText(),
+                    'main_page': main,
+                    'sub-page': mySub,
+                    'section': url.parent.parent.getText(),
                     'link': link
                 })
                 # print 'process {} adding url {} to queue'.format(os.getpid(), link)

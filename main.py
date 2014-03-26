@@ -2,7 +2,7 @@ from multiprocessing import Process, Lock, Pool
 from multiprocessing.managers import BaseManager
 from concurrentqueue import ConcurrentQueue
 from spider import Spider
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 
 import os
 import random
