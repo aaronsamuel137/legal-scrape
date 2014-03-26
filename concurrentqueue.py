@@ -1,16 +1,15 @@
 from multiprocessing import Lock
+from collections import deque
 
 class ConcurrentQueue():
     def __init__(self):
-        self.data = []
+        self.data = deque()
         self.lock = Lock()
-        self.size = 0
 
     def deq(self):
         self.lock.acquire()
         try:
-            item = self.data.pop(0)
-            self.size -= 1
+            item = self.data.popleft()
         except IndexError:
             item = -1
         finally:
@@ -21,7 +20,6 @@ class ConcurrentQueue():
         self.lock.acquire()
         try:
             self.data.append(item)
-            self.size += 1
         finally:
             self.lock.release()
 
@@ -33,7 +31,7 @@ class ConcurrentQueue():
             self.lock.release()
 
     def get_size(self):
-        return self.size
+        return len(self.data)
 
     def __str__(self):
         return self.data
