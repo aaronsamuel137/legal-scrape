@@ -53,7 +53,7 @@ class Spider():
         # print 'getting all links from page', item['link']
         r = s.get(item['link'])
         soup = BeautifulSoup(r.text)
-        main = soup.title.string
+        main = soup.title.getText()
         urls = soup.findAll('a')
         chre = re.compile("(?<=chpt=)\d+")
         notchre = re.compile("sctn=")
