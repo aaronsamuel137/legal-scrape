@@ -56,11 +56,14 @@ class Spider():
         main = soup.title.getText()
         urls = soup.findAll('a')
         chre = re.compile("(?<=chpt=)\d+")
-        notchre = re.compile("sctn=")
+        #notchre = re.compile("sctn=")
         for url in urls:
             href = url['href']
             isChapt = chre.search(href)
-            if notchre.search(href) == None and isChapt:
+            #if notchre.search(href) == None and isChapt:
+            if isChapt == None:
+                mySub = "NoChap"
+            else:
                 mySub = isChapt.group(0)
             if href.startswith('/'):
                 link = domain + href
