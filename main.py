@@ -42,8 +42,8 @@ def parse_urls(q):
 
     # keep dequing items until the queue is empty
     while item != -1:
-        print 'process {} parsing url {}'.format(os.getpid(), item['link'])
-        print 'queue size is', q.get_size()
+        # print 'process {} parsing url {}'.format(os.getpid(), item['link'])
+        # print 'queue size is', q.get_size()
 
         r = s.get(item['link'])
 
@@ -53,7 +53,7 @@ def parse_urls(q):
             link = matches[0].replace("'", '')
             r2 = s.get(link)
             soup = BeautifulSoup(r2.text)
-            
+
             # try to find text surrounded by pre tag
             # this applies to some documents and not others
             pre = soup.find('pre')
@@ -66,17 +66,11 @@ def parse_urls(q):
                 try:
                     ps = soup.findAll('p')
                     text = ''
-                    for i, p in enumerate(ps):
-                        if i == 0:
-                            # the first p tag is usual a title or something,
-                            # so store it seperately
-                            line1 = ps[0].getText()
-                        else:
-                            text += (p.getText() + '\n')
-                    item['data'] = {
-                        'first_line': line1,
-                        'text': text
-                    }
+                    for p in ps:
+                        text += (p.getText() + '\n')
+
+                    item['data'] = text
+
                 except Exception as e:
                     log.write('error occured: ' + str(e))
                     log.write('url is ' + str(link))
