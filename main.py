@@ -53,15 +53,7 @@ def parse_urls(q):
             link = matches[0].replace("'", '')
             r2 = s.get(link)
             soup = BeautifulSoup(r2.text)
-
-            # get the title of the html page
-            try:
-                page_title = soup.find('title')
-                title = page_title.getText()
-                item['page_title'] = title
-            except:
-                log.write('title not found on url: ' + link)
-
+            
             # try to find text surrounded by pre tag
             # this applies to some documents and not others
             pre = soup.find('pre')
