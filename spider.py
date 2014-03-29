@@ -2,7 +2,7 @@ import requests
 import re
 import os
 
-from bs4 import BeautifulSoup
+from BeautifulSoup import BeautifulSoup
 from concurrentqueue import ConcurrentQueue
 
 domain = 'http://www.legis.state.pa.us'
@@ -70,7 +70,7 @@ class Spider():
                 q.enq({
                     'main_page': main,
                     'sub-page': mySub,
-                    'section': url.parent.parent.getText(),
+                    'section': url.parent.parent.getText().lstrip(),
                     'link': link
                 })
                 # print 'process {} adding url {} to queue'.format(os.getpid(), link)

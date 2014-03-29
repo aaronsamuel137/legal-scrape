@@ -2,7 +2,8 @@ from multiprocessing import Process, Lock, Pool
 from multiprocessing.managers import BaseManager
 from concurrentqueue import ConcurrentQueue
 from spider import Spider
-from bs4 import BeautifulSoup
+from BeautifulSoup import BeautifulSoup
+from singlequeue import SingleThreadQueue
 
 import os
 import random
@@ -59,7 +60,7 @@ def parse_urls(q):
             pre = soup.find('pre')
             if pre is not None:
                 data = pre.getText()
-                item['data'] = data
+                item['data'] = data.strip()
 
             # otherwise, just get all the p tags
             else:
@@ -69,7 +70,7 @@ def parse_urls(q):
                     for p in ps:
                         text += (p.getText() + '\n')
 
-                    item['data'] = text
+                    item['data'] = text.strip()
 
                 except Exception as e:
                     log.write('error occured: ' + str(e))
@@ -89,8 +90,7 @@ def crawl(url, q):
     print 'calling crawl'
     Spider().crawl(url, q)
 
-def run_tests_with_object():
-    url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
+def run_tests_with_object(url):
 
     # set up out queue as a shared object
     manager = QueueManager()
@@ -118,8 +118,16 @@ def run_tests_with_object():
 
     p.join()
 
+def run_tests_single_thread(url):
+    q = SingleThreadQueue()
+    Spider().crawl(url, q)
+    parse_urls(q)
+
+
 def main():
-    run_tests_with_object()
+    url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
+    # run_tests_with_object(url)
+    run_tests_single_thread(url)
     log.close()
 
 main()
