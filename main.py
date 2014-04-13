@@ -3,7 +3,7 @@ from multiprocessing.managers import BaseManager
 from concurrentqueue import ConcurrentQueue
 from spider import Spider
 from BeautifulSoup import BeautifulSoup
-from singlequeue import SingleThreadQueue
+#from singlequeue import SingleThreadQueue
 
 import os
 import random
@@ -11,6 +11,8 @@ import json
 import requests
 import re
 import time
+import redis
+import pickle
 
 from pymongo import MongoClient
 
@@ -33,16 +35,19 @@ class QueueManager(BaseManager):
 
 QueueManager.register('ConcurrentQueue', ConcurrentQueue)
 
-def parse_urls(q):
+def parse_urls(red_serve):
     """
     The main parsing function. Takes a concurrent queue as an argument.
 
     """
     s = requests.Session()
-    item = q.deq()
 
-    # keep dequing items until the queue is empty
-    while item != -1:
+    while int(red_serve.llen('urls')) > 0:
+        item = red_serve.rpop('urls')
+        item = pickle.loads(item)
+
+        # keep dequing items until the queue is empty
+
         # print 'process {} parsing url {}'.format(os.getpid(), item['link'])
         # print 'queue size is', q.get_size()
 
@@ -84,30 +89,32 @@ def parse_urls(q):
         else:
             log.write('data link not found in page ' + item['link'])
 
-        item = q.deq()
 
-def crawl(url, q):
+
+def crawl(url, r_server):
     print 'calling crawl'
-    Spider().crawl(url, q)
+    Spider().crawl(url, r_server)
 
-def run_tests_with_object(url):
+def run_tests_with_redis(url):
 
     # set up out queue as a shared object
-    manager = QueueManager()
-    manager.start()
-    q = manager.ConcurrentQueue()
+    # manager = QueueManager()
+    # manager.start()
+    # q = manager.ConcurrentQueue()
+
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # start a spider crawling for urls
-    p = Process(target=crawl, args=(url, q, ))
+    p = Process(target=crawl, args=(url, r, ))
     p.start()
 
     # start other processes for parsing the urls
     processes = []
     for i in range(NUM_THREADS):
-        processes.append(Process(target=parse_urls, args=(q, )))
+        processes.append(Process(target=parse_urls, args=(r, )))
 
     # wait until some items are in the queue before starting the parsing threads
-    while q.get_size() < 1:
+    while int(r.llen('urls')) < 1:
         pass
 
     for i in range(NUM_THREADS):
@@ -126,8 +133,8 @@ def run_tests_single_thread(url):
 
 def main():
     url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
-    # run_tests_with_object(url)
-    run_tests_single_thread(url)
+    run_tests_with_redis(url)
+    # run_tests_single_thread(url)
     log.close()
 
 main()

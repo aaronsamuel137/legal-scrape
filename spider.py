@@ -1,6 +1,7 @@
 import requests
 import re
 import os
+import pickle
 
 from BeautifulSoup import BeautifulSoup
 from concurrentqueue import ConcurrentQueue
@@ -9,7 +10,7 @@ domain = 'http://www.legis.state.pa.us'
 
 class Spider():
 
-    def crawl(self, url, q):
+    def crawl(self, url, red_serve):
         """
         Crawls the main url looking for sub-urls.
 
@@ -31,7 +32,7 @@ class Spider():
                     'main_page': title,
                 }
                 item['link'] = self.get_data_link(link, s)
-                num_urls += self.crawl_again(item, q, s)
+                num_urls += self.crawl_again(item, red_serve, s)
 
         print 'total urls crawled:', num_urls
 
@@ -45,7 +46,7 @@ class Spider():
         link = link_re.findall(r.text)[0].replace("'", '')
         return link
 
-    def crawl_again(self, item, q, s):
+    def crawl_again(self, item, red_serve, s):
         """
         Crawls the content page, looking for all urls in the same domain.
 
@@ -67,12 +68,13 @@ class Spider():
                 mySub = isChapt.group(0)
             if href.startswith('/'):
                 link = domain + href
-                q.enq({
+                next_item = pickle.dumps({
                     'main_page': main,
                     'sub-page': mySub,
                     'section': url.parent.parent.getText().lstrip(),
                     'link': link
                 })
+                red_serve.lpush('urls', next_item)
                 # print 'process {} adding url {} to queue'.format(os.getpid(), link)
         # print 'added {} urls'.format(len(urls))
         return len(urls)
