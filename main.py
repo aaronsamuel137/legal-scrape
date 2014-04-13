@@ -89,6 +89,7 @@ def parse_urls(q):
 def crawl(url, q):
     print 'calling crawl'
     Spider().crawl(url, q)
+    parse_urls(q)
 
 def run_tests_with_object(url):
 
