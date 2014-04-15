@@ -14,7 +14,7 @@ import time
 
 from pymongo import MongoClient
 
-NUM_THREADS = 3
+NUM_PROCESSES = 4
 
 # open an error log
 log = open('error.log', 'w')
@@ -87,11 +87,17 @@ def parse_urls(q):
         item = q.deq()
 
 def crawl(url, q):
-    print 'calling crawl'
+    """
+    Starts a spider crawling for all the useful urls in this domain and adding them
+    to the shared queue. After the spider finishes, this processes starts parse the
+    urls along with the other processes.
+
+    """
     Spider().crawl(url, q)
     parse_urls(q)
 
-def run_tests_with_object(url):
+def main():
+    url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
 
     # set up out queue as a shared object
     manager = QueueManager()
@@ -104,31 +110,19 @@ def run_tests_with_object(url):
 
     # start other processes for parsing the urls
     processes = []
-    for i in range(NUM_THREADS):
+    for i in range(NUM_PROCESSES-1):
         processes.append(Process(target=parse_urls, args=(q, )))
 
     # wait until some items are in the queue before starting the parsing threads
     while q.get_size() < 1:
         pass
 
-    for i in range(NUM_THREADS):
+    for i in range(NUM_PROCESSES-1):
         processes[i].start()
 
-    for i in range(NUM_THREADS):
+    for i in range(NUM_PROCESSES-1):
         processes[i].join()
 
     p.join()
-
-def run_tests_single_thread(url):
-    q = SingleThreadQueue()
-    Spider().crawl(url, q)
-    parse_urls(q)
-
-
-def main():
-    url = "http://www.legis.state.pa.us/cfdocs/legis/LI/Public/cons_index.cfm"
-    # run_tests_with_object(url)
-    run_tests_single_thread(url)
-    log.close()
 
 main()

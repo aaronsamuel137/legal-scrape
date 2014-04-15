@@ -50,17 +50,14 @@ class Spider():
         Crawls the content page, looking for all urls in the same domain.
 
         """
-        # print 'getting all links from page', item['link']
         r = s.get(item['link'])
         soup = BeautifulSoup(r.text)
         main = soup.title.getText()
         urls = soup.findAll('a')
         chre = re.compile("(?<=chpt=)\d+")
-        #notchre = re.compile("sctn=")
         for url in urls:
             href = url['href']
             isChapt = chre.search(href)
-            #if notchre.search(href) == None and isChapt:
             if isChapt == None:
                 mySub = "NoChap"
             else:
@@ -73,6 +70,4 @@ class Spider():
                     'section': url.parent.parent.getText().lstrip(),
                     'link': link
                 })
-                # print 'process {} adding url {} to queue'.format(os.getpid(), link)
-        # print 'added {} urls'.format(len(urls))
         return len(urls)
