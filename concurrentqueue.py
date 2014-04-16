@@ -32,6 +32,3 @@ class ConcurrentQueue():
 
     def get_size(self):
         return len(self.data)
-
-    def __str__(self):
-        return self.data

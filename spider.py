@@ -8,6 +8,12 @@ from concurrentqueue import ConcurrentQueue
 domain = 'http://www.legis.state.pa.us'
 
 class Spider():
+    """
+    This spider class is specific to the domain http://www.legis.state.pa.us.
+    It looks for all links to all statutes and puts them in a queue, along with
+    relevant meta-information.
+
+    """
 
     def crawl(self, url, q):
         """

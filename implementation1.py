@@ -1,9 +1,8 @@
-from multiprocessing import Process, Lock, Pool
+from multiprocessing import Process
 from multiprocessing.managers import BaseManager
 from concurrentqueue import ConcurrentQueue
 from spider import Spider
 from BeautifulSoup import BeautifulSoup
-from singlequeue import SingleThreadQueue
 
 import os
 import random
